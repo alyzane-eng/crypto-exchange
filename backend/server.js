@@ -6,11 +6,9 @@ require('dotenv').config();
 
 const app = express();
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'https://crypto-exchange-ysob.vercel.app',
-  ],
-  credentials: true,
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-key'],
 }));
 app.use(express.json());
 
@@ -31,6 +29,19 @@ const db = { query: (text, params) => pool.query(text, params) };
 let allCoinsCache = [];
 let lastCoinFetch = 0;
 
+const FALLBACK_PRICES = [
+  { symbol: 'BTC', price: '67000.00', change: '1.20' },
+  { symbol: 'ETH', price: '3500.00', change: '0.80' },
+  { symbol: 'BNB', price: '580.00', change: '0.50' },
+  { symbol: 'SOL', price: '170.00', change: '2.10' },
+  { symbol: 'ADA', price: '0.45', change: '-0.30' },
+  { symbol: 'DOGE', price: '0.12', change: '1.50' },
+  { symbol: 'XRP', price: '0.52', change: '0.90' },
+  { symbol: 'MATIC', price: '0.85', change: '-0.20' },
+];
+
+const axiosInstance = axios.create({ timeout: 8000 });
+
 // ─── ADMIN MIDDLEWARE ─────────────────────────────────────────────────────────
 const adminAuth = (req, res, next) => {
   if (req.headers['x-admin-key'] !== 'cryptoclass-admin-2024') {
@@ -43,7 +54,9 @@ const adminAuth = (req, res, next) => {
 app.get('/api/prices/top', async (req, res) => {
   try {
     const symbols = ['BTCUSDT','ETHUSDT','BNBUSDT','SOLUSDT','ADAUSDT','DOGEUSDT','XRPUSDT','MATICUSDT'];
-    const requests = symbols.map(s => axios.get(`https://api.binance.com/api/v3/ticker/24hr?symbol=${s}`));
+    const requests = symbols.map(s =>
+      axiosInstance.get(`https://api.binance.com/api/v3/ticker/24hr?symbol=${s}`)
+    );
     const responses = await Promise.all(requests);
     const prices = responses.map(r => ({
       symbol: r.data.symbol.replace('USDT',''),
@@ -51,7 +64,10 @@ app.get('/api/prices/top', async (req, res) => {
       change: parseFloat(r.data.priceChangePercent).toFixed(2),
     }));
     res.json(prices);
-  } catch (err) { res.status(500).json({ error: 'Failed to fetch prices' }); }
+  } catch (err) {
+    console.log('Binance unreachable, using fallback prices');
+    res.json(FALLBACK_PRICES);
+  }
 });
 
 // ─── ALL MARKETS ──────────────────────────────────────────────────────────────
@@ -61,7 +77,7 @@ app.get('/api/markets', async (req, res) => {
     if (allCoinsCache.length > 0 && now - lastCoinFetch < 30000) {
       return res.json(allCoinsCache);
     }
-    const response = await axios.get('https://api.binance.com/api/v3/ticker/24hr');
+    const response = await axiosInstance.get('https://api.binance.com/api/v3/ticker/24hr');
     const coins = response.data
       .filter(c => c.symbol.endsWith('USDT') && parseFloat(c.lastPrice) > 0)
       .map(c => ({
@@ -78,14 +94,26 @@ app.get('/api/markets', async (req, res) => {
     allCoinsCache = coins;
     lastCoinFetch = now;
     res.json(coins);
-  } catch (err) { res.status(500).json({ error: 'Failed to fetch markets' }); }
+  } catch (err) {
+    console.log('Markets fallback');
+    res.json(FALLBACK_PRICES.map(p => ({
+      ...p,
+      fullSymbol: p.symbol + 'USDT',
+      high: p.price,
+      low: p.price,
+      volume: '1000000',
+      trades: 1000,
+    })));
+  }
 });
 
 // ─── PRICES ───────────────────────────────────────────────────────────────────
 app.get('/api/prices', async (req, res) => {
   try {
     const symbols = ['BTCUSDT','ETHUSDT','BNBUSDT','SOLUSDT','ADAUSDT','DOGEUSDT','XRPUSDT','MATICUSDT'];
-    const requests = symbols.map(s => axios.get(`https://api.binance.com/api/v3/ticker/24hr?symbol=${s}`));
+    const requests = symbols.map(s =>
+      axiosInstance.get(`https://api.binance.com/api/v3/ticker/24hr?symbol=${s}`)
+    );
     const responses = await Promise.all(requests);
     const prices = responses.map(r => ({
       symbol: r.data.symbol.replace('USDT',''),
@@ -96,7 +124,9 @@ app.get('/api/prices', async (req, res) => {
       volume: parseFloat(r.data.volume).toFixed(0)
     }));
     res.json(prices);
-  } catch (err) { res.status(500).json({ error: 'Failed to fetch prices' }); }
+  } catch (err) {
+    res.json(FALLBACK_PRICES.map(p => ({ ...p, high: p.price, low: p.price, volume: '1000000' })));
+  }
 });
 
 // ─── CANDLES ──────────────────────────────────────────────────────────────────
@@ -105,7 +135,7 @@ app.get('/api/candles/:symbol', async (req, res) => {
     const { symbol } = req.params;
     const interval = req.query.interval || '1h';
     const limit = req.query.limit || 200;
-    const response = await axios.get(
+    const response = await axiosInstance.get(
       `https://api.binance.com/api/v3/klines?symbol=${symbol}USDT&interval=${interval}&limit=${limit}`
     );
     const candles = response.data.map(c => ({
@@ -117,13 +147,15 @@ app.get('/api/candles/:symbol', async (req, res) => {
       volume: parseFloat(c[5]),
     }));
     res.json(candles);
-  } catch (err) { res.status(500).json({ error: 'Failed to fetch candles' }); }
+  } catch (err) {
+    res.json([]);
+  }
 });
 
 // ─── SINGLE PRICE ─────────────────────────────────────────────────────────────
 app.get('/api/price/:symbol', async (req, res) => {
   try {
-    const response = await axios.get(
+    const response = await axiosInstance.get(
       `https://api.binance.com/api/v3/ticker/24hr?symbol=${req.params.symbol}USDT`
     );
     const d = response.data;
@@ -136,7 +168,10 @@ app.get('/api/price/:symbol', async (req, res) => {
       volume: parseFloat(d.quoteVolume).toFixed(0),
       open: parseFloat(d.openPrice),
     });
-  } catch (err) { res.status(500).json({ error: 'Failed to fetch price' }); }
+  } catch (err) {
+    const fallback = FALLBACK_PRICES.find(p => p.symbol === req.params.symbol) || FALLBACK_PRICES[0];
+    res.json({ symbol: req.params.symbol, price: parseFloat(fallback.price), change: fallback.change, high: parseFloat(fallback.price), low: parseFloat(fallback.price), volume: '1000000', open: parseFloat(fallback.price) });
+  }
 });
 
 // ─── REGISTER ─────────────────────────────────────────────────────────────────
@@ -198,7 +233,7 @@ app.post('/api/login', async (req, res) => {
     } else {
       wallet = walletResult.rows[0];
     }
-    console.log('Login OK:', user.name, '| Balance:', wallet.usdt_balance);
+    console.log('Login OK:', user.name);
     res.json({ success: true, user: { ...user }, wallet });
   } catch (err) {
     console.error('Login error:', err.message);
@@ -229,8 +264,14 @@ app.post('/api/trade/buy', async (req, res) => {
   const client = await pool.connect();
   try {
     const { userId, symbol, quantity } = req.body;
-    const priceRes = await axios.get(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}USDT`);
-    const price = parseFloat(priceRes.data.price);
+    let price;
+    try {
+      const priceRes = await axiosInstance.get(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}USDT`);
+      price = parseFloat(priceRes.data.price);
+    } catch {
+      const fallback = FALLBACK_PRICES.find(p => p.symbol === symbol) || FALLBACK_PRICES[0];
+      price = parseFloat(fallback.price);
+    }
     const total = price * parseFloat(quantity);
     await client.query('BEGIN');
     const walletResult = await client.query('SELECT * FROM wallets WHERE user_id=$1', [userId]);
@@ -268,8 +309,14 @@ app.post('/api/trade/sell', async (req, res) => {
     if (!holding || parseFloat(holding.quantity) < parseFloat(quantity)) {
       return res.status(400).json({ error: 'Insufficient holdings' });
     }
-    const priceRes = await axios.get(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}USDT`);
-    const price = parseFloat(priceRes.data.price);
+    let price;
+    try {
+      const priceRes = await axiosInstance.get(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}USDT`);
+      price = parseFloat(priceRes.data.price);
+    } catch {
+      const fallback = FALLBACK_PRICES.find(p => p.symbol === symbol) || FALLBACK_PRICES[0];
+      price = parseFloat(fallback.price);
+    }
     const total = price * parseFloat(quantity);
     await client.query('BEGIN');
     await client.query('UPDATE wallets SET usdt_balance=usdt_balance+$1 WHERE user_id=$2', [total, userId]);
@@ -298,9 +345,12 @@ app.get('/api/leaderboard', async (req, res) => {
     const prices = {};
     for (const sym of symbols) {
       try {
-        const r = await axios.get(`https://api.binance.com/api/v3/ticker/price?symbol=${sym}USDT`);
+        const r = await axiosInstance.get(`https://api.binance.com/api/v3/ticker/price?symbol=${sym}USDT`);
         prices[sym] = parseFloat(r.data.price);
-      } catch { prices[sym] = 0; }
+      } catch {
+        const fallback = FALLBACK_PRICES.find(p => p.symbol === sym);
+        prices[sym] = fallback ? parseFloat(fallback.price) : 0;
+      }
     }
     const leaderboard = usersResult.rows.map(user => {
       const wallet = walletsResult.rows.find(w => w.user_id === user.id);
@@ -308,12 +358,7 @@ app.get('/api/leaderboard', async (req, res) => {
       const cryptoValue = userHoldings.reduce((sum, h) => sum + (parseFloat(h.quantity) * (prices[h.symbol] || 0)), 0);
       const totalValue = parseFloat(wallet?.usdt_balance || 0) + cryptoValue;
       const pnl = totalValue - 10000;
-      return {
-        name: user.name, email: user.email,
-        totalValue: totalValue.toFixed(2),
-        pnl: pnl.toFixed(2),
-        pnlPercent: ((pnl / 10000) * 100).toFixed(2)
-      };
+      return { name: user.name, email: user.email, totalValue: totalValue.toFixed(2), pnl: pnl.toFixed(2), pnlPercent: ((pnl / 10000) * 100).toFixed(2) };
     });
     leaderboard.sort((a, b) => b.totalValue - a.totalValue);
     res.json(leaderboard);
@@ -323,10 +368,7 @@ app.get('/api/leaderboard', async (req, res) => {
 // ─── TRADE HISTORY ────────────────────────────────────────────────────────────
 app.get('/api/trades/:userId', async (req, res) => {
   try {
-    const result = await db.query(
-      'SELECT * FROM trades WHERE user_id=$1 ORDER BY created_at DESC',
-      [req.params.userId]
-    );
+    const result = await db.query('SELECT * FROM trades WHERE user_id=$1 ORDER BY created_at DESC', [req.params.userId]);
     res.json(result.rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -341,26 +383,21 @@ app.get('/api/admin/students', adminAuth, async (req, res) => {
     const prices = {};
     for (const sym of symbols) {
       try {
-        const r = await axios.get(`https://api.binance.com/api/v3/ticker/price?symbol=${sym}USDT`);
+        const r = await axiosInstance.get(`https://api.binance.com/api/v3/ticker/price?symbol=${sym}USDT`);
         prices[sym] = parseFloat(r.data.price);
-      } catch { prices[sym] = 0; }
+      } catch {
+        const fallback = FALLBACK_PRICES.find(p => p.symbol === sym);
+        prices[sym] = fallback ? parseFloat(fallback.price) : 0;
+      }
     }
     const students = usersResult.rows.map(user => {
       const wallet = walletsResult.rows.find(w => w.user_id === user.id);
       const userHoldings = holdingsResult.rows.filter(h => h.user_id === user.id);
-      const cryptoValue = userHoldings.reduce((sum, h) =>
-        sum + (parseFloat(h.quantity) * (prices[h.symbol] || 0)), 0);
+      const cryptoValue = userHoldings.reduce((sum, h) => sum + (parseFloat(h.quantity) * (prices[h.symbol] || 0)), 0);
       const usdtBalance = parseFloat(wallet?.usdt_balance || 0);
       const totalValue = usdtBalance + cryptoValue;
       const pnl = totalValue - 10000;
-      return {
-        id: user.id, name: user.name, email: user.email,
-        usdt_balance: usdtBalance.toFixed(2),
-        crypto_value: cryptoValue.toFixed(2),
-        total_value: totalValue.toFixed(2),
-        pnl: pnl.toFixed(2),
-        pnl_percent: ((pnl / 10000) * 100).toFixed(2),
-      };
+      return { id: user.id, name: user.name, email: user.email, usdt_balance: usdtBalance.toFixed(2), crypto_value: cryptoValue.toFixed(2), total_value: totalValue.toFixed(2), pnl: pnl.toFixed(2), pnl_percent: ((pnl / 10000) * 100).toFixed(2) };
     });
     students.sort((a, b) => parseFloat(b.total_value) - parseFloat(a.total_value));
     res.json(students);
@@ -371,7 +408,6 @@ app.get('/api/admin/students', adminAuth, async (req, res) => {
 app.post('/api/admin/funds', adminAuth, async (req, res) => {
   try {
     const { userId, amount, action } = req.body;
-    console.log('Admin funds:', userId, action, amount);
     const walletResult = await db.query('SELECT * FROM wallets WHERE user_id=$1', [userId]);
     const wallet = walletResult.rows[0];
     if (!wallet) return res.status(404).json({ error: 'Wallet not found' });
@@ -383,12 +419,8 @@ app.post('/api/admin/funds', adminAuth, async (req, res) => {
       if (newBalance < 0) return res.status(400).json({ error: 'Cannot remove more than balance' });
     }
     await db.query('UPDATE wallets SET usdt_balance=$1 WHERE user_id=$2', [newBalance, userId]);
-    console.log('New balance:', newBalance);
     res.json({ success: true, newBalance: newBalance.toFixed(2) });
-  } catch (err) {
-    console.error('Funds error:', err.message);
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ─── ADMIN — RESET STUDENT ────────────────────────────────────────────────────
@@ -408,16 +440,7 @@ app.post('/api/admin/reset', adminAuth, async (req, res) => {
   } finally { client.release(); }
 });
 
-// ─── HEALTH ───────────────────────────────────────────────────────────────────
-app.get('/api/health', async (req, res) => {
-  try {
-    await db.query('SELECT 1');
-    res.json({ status: 'ok', database: 'connected' });
-  } catch (err) { res.status(500).json({ status: 'error', database: err.message }); }
-});
-
-const PORT = process.env.PORT || 5000;
-// ─── FORUM — GET ALL POSTS ────────────────────────────────────────────────────
+// ─── FORUM ────────────────────────────────────────────────────────────────────
 app.get('/api/forum/posts', async (req, res) => {
   try {
     const category = req.query.category;
@@ -432,7 +455,6 @@ app.get('/api/forum/posts', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ─── FORUM — CREATE POST ──────────────────────────────────────────────────────
 app.post('/api/forum/posts', async (req, res) => {
   try {
     const { userId, userName, category, title, content } = req.body;
@@ -445,29 +467,20 @@ app.post('/api/forum/posts', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ─── FORUM — LIKE POST ────────────────────────────────────────────────────────
 app.post('/api/forum/posts/:id/like', async (req, res) => {
   try {
-    const result = await db.query(
-      'UPDATE posts SET likes=likes+1 WHERE id=$1 RETURNING *',
-      [req.params.id]
-    );
+    const result = await db.query('UPDATE posts SET likes=likes+1 WHERE id=$1 RETURNING *', [req.params.id]);
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ─── FORUM — GET COMMENTS ─────────────────────────────────────────────────────
 app.get('/api/forum/posts/:id/comments', async (req, res) => {
   try {
-    const result = await db.query(
-      'SELECT * FROM comments WHERE post_id=$1 ORDER BY created_at ASC',
-      [req.params.id]
-    );
+    const result = await db.query('SELECT * FROM comments WHERE post_id=$1 ORDER BY created_at ASC', [req.params.id]);
     res.json(result.rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ─── FORUM — ADD COMMENT ──────────────────────────────────────────────────────
 app.post('/api/forum/posts/:id/comments', async (req, res) => {
   try {
     const { userId, userName, content } = req.body;
@@ -479,4 +492,14 @@ app.post('/api/forum/posts/:id/comments', async (req, res) => {
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+
+// ─── HEALTH ───────────────────────────────────────────────────────────────────
+app.get('/api/health', async (req, res) => {
+  try {
+    await db.query('SELECT 1');
+    res.json({ status: 'ok', database: 'connected' });
+  } catch (err) { res.status(500).json({ status: 'error', database: err.message }); }
+});
+
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
