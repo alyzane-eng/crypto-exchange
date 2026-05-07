@@ -24,7 +24,7 @@ export default function Markets() {
 
   const fetchMarkets = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/markets');
+      const res = await axios.get('https://crypto-exchange-production-12cd.up.railway.app/api/markets');
       setCoins(res.data);
     } catch (err) { console.error(err); }
     setLoading(false);

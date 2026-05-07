@@ -22,7 +22,7 @@ export default function History() {
 
   const fetchHistory = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/trades/${user.id}`);
+      const res = await axios.get(`https://crypto-exchange-production-12cd.up.railway.app/api/trades/${user.id}`);
       setTrades(res.data);
       setFiltered(res.data);
     } catch (err) { console.error(err); }

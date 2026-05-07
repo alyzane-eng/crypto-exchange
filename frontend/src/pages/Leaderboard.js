@@ -15,7 +15,7 @@ export default function Leaderboard() {
 
   const fetchLeaderboard = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/leaderboard');
+      const res = await axios.get('https://crypto-exchange-production-12cd.up.railway.app/api/leaderboard');
       setBoard(res.data);
     } catch (err) {
       console.error(err);

@@ -23,7 +23,7 @@ export default function Register() {
 
   const fetchPrices = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/prices/top');
+      const res = await axios.get('https://crypto-exchange-production-12cd.up.railway.app/api/prices/top');
       setPrices(res.data);
     } catch (err) {}
   };
@@ -35,7 +35,7 @@ export default function Register() {
     if (password.length < 6) { setError('Password must be at least 6 characters'); return; }
     setLoading(true);
     try {
-      await axios.post('http://localhost:5000/api/register', { name, email, password });
+      await axios.post('https://crypto-exchange-production-12cd.up.railway.app/api/register', { name, email, password });
       setSuccess(true);
       setTimeout(() => navigate('/login'), 3000);
     } catch (err) {

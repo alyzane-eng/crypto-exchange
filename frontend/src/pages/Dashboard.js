@@ -20,8 +20,8 @@ export default function Dashboard() {
   const fetchData = async () => {
     try {
       const [portRes, mktRes] = await Promise.all([
-        axios.get(`http://localhost:5000/api/portfolio/${user.id}`),
-        axios.get('http://localhost:5000/api/markets'),
+        axios.get(`https://crypto-exchange-production-12cd.up.railway.app/api/portfolio/${user.id}`),
+        axios.get('https://crypto-exchange-production-12cd.up.railway.app/api/markets'),
       ]);
       setPortfolio(portRes.data);
       const priceMap = {};

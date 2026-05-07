@@ -52,7 +52,7 @@ export default function Login() {
 
   const fetchPrices = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/prices/top');
+      const res = await axios.get('https://crypto-exchange-production-12cd.up.railway.app/api/prices/top');
       setPrices(res.data);
     } catch (err) {}
   };
@@ -62,7 +62,7 @@ export default function Login() {
     setLoading(true);
     setError('');
     try {
-      const res = await axios.post('http://localhost:5000/api/login', { email, password });
+      const res = await axios.post('https://crypto-exchange-production-12cd.up.railway.app/api/login', { email, password });
       localStorage.setItem('user', JSON.stringify(res.data.user));
       localStorage.setItem('wallet', JSON.stringify(res.data.wallet));
       navigate('/dashboard');

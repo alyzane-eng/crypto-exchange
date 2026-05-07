@@ -29,7 +29,7 @@ export default function Forum() {
 
   const fetchPosts = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/forum/posts?category=${category}`);
+      const res = await axios.get(`https://crypto-exchange-production-12cd.up.railway.app/api/forum/posts?category=${category}`);
       setPosts(res.data);
     } catch (err) { console.error(err); }
     setLoading(false);
@@ -37,14 +37,14 @@ export default function Forum() {
 
   const fetchComments = async (postId) => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/forum/posts/${postId}/comments`);
+      const res = await axios.get(`https://crypto-exchange-production-12cd.up.railway.app/api/forum/posts/${postId}/comments`);
       setComments(res.data);
     } catch (err) { console.error(err); }
   };
 
   const handleLike = async (postId) => {
     try {
-      await axios.post(`http://localhost:5000/api/forum/posts/${postId}/like`);
+      await axios.post(`https://crypto-exchange-production-12cd.up.railway.app/api/forum/posts/${postId}/like`);
       fetchPosts();
     } catch (err) { console.error(err); }
   };
@@ -52,7 +52,7 @@ export default function Forum() {
   const handleNewPost = async () => {
     if (!newPost.title || !newPost.content) return;
     try {
-      await axios.post('http://localhost:5000/api/forum/posts', {
+      await axios.post('https://crypto-exchange-production-12cd.up.railway.app/api/forum/posts', {
         userId: user.id,
         userName: user.name,
         category: newPost.category,
@@ -68,7 +68,7 @@ export default function Forum() {
   const handleComment = async () => {
     if (!newComment || !selectedPost) return;
     try {
-      await axios.post(`http://localhost:5000/api/forum/posts/${selectedPost.id}/comments`, {
+      await axios.post(`https://crypto-exchange-production-12cd.up.railway.app/api/forum/posts/${selectedPost.id}/comments`, {
         userId: user.id,
         userName: user.name,
         content: newComment,

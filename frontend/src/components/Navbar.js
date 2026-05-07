@@ -24,7 +24,7 @@ export default function Navbar() {
 
   const fetchTicker = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/prices/top');
+      const res = await axios.get('https://crypto-exchange-production-12cd.up.railway.app/api/prices/top');
       setPrices(res.data.slice(0, 8));
     } catch (err) {}
   };

@@ -137,7 +137,7 @@ export default function Trade() {
   const fetchCandles = async () => {
     try {
       const res = await axios.get(
-        `http://localhost:5000/api/candles/${symbol}?interval=${chartInterval}&limit=200`
+        `https://crypto-exchange-production-12cd.up.railway.app/api/candles/${symbol}?interval=${chartInterval}&limit=200`
       );
       if (candleSeries.current) candleSeries.current.setData(res.data);
       if (volumeSeries.current) {
@@ -154,7 +154,7 @@ export default function Trade() {
 
   const fetchCoinData = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/price/${symbol}`);
+      const res = await axios.get(`https://crypto-exchange-production-12cd.up.railway.app/api/price/${symbol}`);
       setCoinData(res.data);
     } catch (err) { console.error(err); }
   };
@@ -187,7 +187,7 @@ export default function Trade() {
 
   const fetchPortfolio = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/portfolio/${user.id}`);
+      const res = await axios.get(`https://crypto-exchange-production-12cd.up.railway.app/api/portfolio/${user.id}`);
       setWallet(res.data.wallet);
       setHolding(res.data.holdings.find(h => h.symbol === symbol) || null);
     } catch (err) { console.error(err); }
@@ -208,7 +208,7 @@ export default function Trade() {
     setLoading(true);
     setMessage(null);
     try {
-      const res = await axios.post(`http://localhost:5000/api/trade/${orderType}`, {
+      const res = await axios.post(`https://crypto-exchange-production-12cd.up.railway.app/api/trade/${orderType}`, {
         userId: user.id, symbol, quantity: qty,
       });
       setMessage({ type: 'success', text: res.data.message });

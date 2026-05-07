@@ -26,7 +26,7 @@ export default function Admin() {
 
   const fetchStudents = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/admin/students', {
+      const res = await axios.get('https://crypto-exchange-production-12cd.up.railway.app/api/admin/students', {
         headers: { 'x-admin-key': 'cryptoclass-admin-2024' }
       });
       setStudents(res.data);
@@ -42,7 +42,7 @@ export default function Admin() {
       return;
     }
     try {
-      await axios.post('http://localhost:5000/api/admin/funds', {
+      await axios.post('https://crypto-exchange-production-12cd.up.railway.app/api/admin/funds', {
         userId: studentId,
         amount: parseFloat(fundAmount),
         action: fundAction,
@@ -58,7 +58,7 @@ export default function Admin() {
   const handleReset = async (studentId, name) => {
     if (!window.confirm(`Reset ${name}'s account to $10,000? All trades will be deleted.`)) return;
     try {
-      await axios.post('http://localhost:5000/api/admin/reset', {
+      await axios.post('https://crypto-exchange-production-12cd.up.railway.app/api/admin/reset', {
         userId: studentId,
       }, { headers: { 'x-admin-key': 'cryptoclass-admin-2024' } });
       setMessage({ type: 'success', text: `${name}'s account has been reset to $10,000` });
@@ -70,7 +70,7 @@ export default function Admin() {
 
   const handleViewTrades = async (student) => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/trades/${student.id}`);
+      const res = await axios.get(`https://crypto-exchange-production-12cd.up.railway.app/api/trades/${student.id}`);
       setStudentTrades(res.data);
       setSelected(student);
       setShowTrades(true);
