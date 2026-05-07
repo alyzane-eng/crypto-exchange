@@ -38,15 +38,15 @@ export default function Navbar() {
 
   const isActive = (path) => location.pathname === path;
 
-  const navLinks = [
-    { path: '/dashboard', label: 'Dashboard', icon: '📊' },
-    { path: '/markets', label: 'Markets', icon: '🌐' },
-    { path: '/wallet', label: 'Wallet', icon: '💼' },
-    { path: '/history', label: 'History', icon: '📋' },
-    { path: '/forum', label: 'Forum', icon: '💬' },
-    { path: '/leaderboard', label: 'Leaderboard', icon: '🏆' },
-    { path: '/admin', label: 'Admin', icon: '⚙️' },
-  ];
+const navLinks = [
+  { path: '/dashboard', label: 'Dashboard', icon: '📊' },
+  { path: '/markets', label: 'Markets', icon: '🌐' },
+  { path: '/wallet', label: 'Wallet', icon: '💼' },
+  { path: '/history', label: 'History', icon: '📋' },
+  { path: '/forum', label: 'Forum', icon: '💬' },
+  { path: '/leaderboard', label: 'Leaderboard', icon: '🏆' },
+  ...(user?.is_admin ? [{ path: '/admin', label: 'Admin', icon: '⚙️' }] : []),
+];
 
   return (
     <>

@@ -17,10 +17,10 @@ export default function Admin() {
   const user = JSON.parse(localStorage.getItem('user'));
 
   useEffect(() => {
-// if (!user?.is_admin) {
-//   navigate('/dashboard');
-//   return;
-// } 
+if (!user?.is_admin) {
+  navigate('/dashboard');
+  return;
+}
     fetchStudents();
   }, []);
 

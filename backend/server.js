@@ -234,7 +234,7 @@ app.post('/api/login', async (req, res) => {
       wallet = walletResult.rows[0];
     }
     console.log('Login OK:', user.name);
-    res.json({ success: true, user: { ...user }, wallet });
+    res.json({ success: true, user: { ...user, is_admin: user.is_admin }, wallet });
   } catch (err) {
     console.error('Login error:', err.message);
     res.status(500).json({ error: err.message });
